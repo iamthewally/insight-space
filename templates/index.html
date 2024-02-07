@@ -1,39 +1,84 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Real-Time Transcription</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Transcription Dashboard</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.0/socket.io.min.js"></script>
     <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
         #status {
-            color: red;
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 5px;
         }
         .connected {
-            color: green;
+            color: #fff;
+            background-color: #4CAF50;
+        }
+        .not-connected {
+            color: #fff;
+            background-color: #f44336;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+        #startButton {
+            background-color: #4CAF50;
+            color: white;
+        }
+        #stopButton {
+            background-color: #f44336;
+            color: white;
+        }
+        #transcription {
+            margin-top: 20px;
+            padding: 20px;
+            background-color: white;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            min-height: 100px;
+            overflow-y: auto;
         }
     </style>
 </head>
 <body>
-    <h1>Real-Time Transcription with Whisper</h1>
-    <button id="startButton" onclick="startRecording()">Start Recording</button>
-    <button id="stopButton" onclick="stopRecording()" disabled>Stop Recording</button>
-    <div id="status">Not Connected</div>
+    <h1>Real-Time Transcription Dashboard</h1>
+    <button id="startButton">Start Recording</button>
+    <button id="stopButton" disabled>Stop Recording</button>
+    <div id="status" class="not-connected">Not Connected</div>
     <div id="transcription"></div>
 
     <script>
         var socket = io();
         var mediaRecorder;
-        var intervalId;
+        var recordingInterval;
+
+        function updateStatus(connected = false) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.className = connected ? 'connected' : 'not-connected';
+            statusDiv.innerText = connected ? 'Connected' : 'Not Connected';
+        }
 
         socket.on('connect', function () {
             console.log('Connected to server.');
-            document.getElementById('status').innerText = 'Connected';
-            document.getElementById('status').classList.add('connected');
+            updateStatus(true);
         });
 
         socket.on('disconnect', function () {
-            document.getElementById('status').innerText = 'Disconnected';
-            document.getElementById('status').classList.remove('connected');
-            clearInterval(intervalId); // Clear the interval if the socket gets disconnected
+            console.log('Disconnected from server.');
+            updateStatus(false);
+            clearInterval(recordingInterval);
         });
 
         socket.on('transcription', function (data) {
@@ -44,63 +89,68 @@
         });
 
         socket.on('error', function (data) {
+            console.error("Transcription error:", data);
             document.getElementById('transcription').innerText += 'Error: ' + data.message + ' ';
-            document.getElementById('status').innerText = 'Error occurred';
         });
-        function startRecording() {
-            // Request the browser to capture audio with specific constraints
-    navigator.mediaDevices.getUserMedia({
-        audio: {
-            sampleRate: 16000 // Attempt to set the sample rate to 16000 Hz
-        }
-    }).then(stream => {
-            document.getElementById('startButton').disabled = true;
-            document.getElementById('stopButton').disabled = false;
 
-            let mimeTypeOption = "audio/mp4";
+        function startRecordingLoop() {
+            navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(stream => {
+                    let mimeTypeOption = "audio/mp4";
             if(!MediaRecorder.isTypeSupported('audio/mp4')){
                 mimeTypeOption = 'audio/webm;codecs=opus';
             }
             mediaRecorder = new MediaRecorder(stream, {mimeType: mimeTypeOption});
 
-            console.log("Using mimeType: " + mimeTypeOption);
-            mediaRecorder.ondataavailable = function (event) {
-                if (event.data.size > 0) {
-                    sendAudioData(event.data);
-                }
-            };
+                    mediaRecorder.ondataavailable = function (event) {
+                        if (event.data.size > 0) {
+                            sendAudioData(event.data);
+                        }
+                    };
 
-            // Start recording without slicing the audio blob
-            mediaRecorder.start();
+                    mediaRecorder.start(10000); // Start recording with a slice every 10000 ms (10 seconds)
+                    console.log("MediaRecorder started with 10 second chunks.");
 
-            // Automatically stop recording after 10 seconds
-            setTimeout(function() {
-                stopRecording();
-            }, 10000); // 10000 milliseconds = 10 seconds
+                    recordingInterval = setInterval(() => {
+                        if (mediaRecorder.state === "recording") {
+                            mediaRecorder.stop();
+                            mediaRecorder.start(10000); // Restart recording immediately after stopping to avoid gaps
+                        }
+                    }, 10000); // Ensure we capture and process 10-second audio chunks continuously
+                })
+                .catch(function (err) {
+                    console.error('Error starting audio recording:', err);
+                    document.getElementById('transcription').innerText = 'Recording failed: ' + err.message;
+                });
+        }
 
-            console.log("MediaRecorder started");
-        })
-        .catch(function (err) {
-            console.error('Error starting audio recording:', err);
-            document.getElementById('transcription').innerText = 'Recording failed: ' + err.message;
-        });
-}
         function sendAudioData(audioBlob) {
             var reader = new FileReader();
-            reader.onload = function () {
+            reader.onloadend = function () {
                 socket.emit('audio_chunk', reader.result);
             };
             reader.readAsArrayBuffer(audioBlob);
         }
 
         function stopRecording() {
-            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            clearInterval(recordingInterval);
+            if (mediaRecorder && mediaRecorder.state === "recording") {
                 mediaRecorder.stop();
-                document.getElementById('startButton').disabled = false;
-                document.getElementById('stopButton').disabled = true;
-                document.getElementById('transcription').innerText += '\nRecording stopped. ';
             }
+            document.getElementById('startButton').disabled = false;
+            document.getElementById('stopButton').disabled = true;
+            document.getElementById('transcription').innerText += '\nRecording stopped.';
         }
+
+        document.getElementById('startButton').onclick = function() {
+            this.disabled = true;
+            document.getElementById('stopButton').disabled = false;
+            startRecordingLoop();
+        };
+
+        document.getElementById('stopButton').onclick = function() {
+            stopRecording();
+        };
     </script>
 </body>
 </html>
