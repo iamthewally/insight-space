@@ -1,18 +1,20 @@
 import whisperx
 import gc 
+import torch
 
 device = "cuda" 
 audio_file = "Recording.webm"
 batch_size = 12 # reduce if low on GPU mem
 compute_type = "float16" # change to "int8" if low on GPU mem (may reduce accuracy)
 
-# 1. Transcribe with original whisper (batched)
-# model = whisperx.load_model("large-v3", device, compute_type=compute_type)
+print("garbage collection...")
+gc.collect()
 
+print("empty torch cache...")
+torch.cuda.empty_cache()
 # save model to local path (optional)
 model_dir = "./models/"
 model = whisperx.load_model("large-v3", device, compute_type=compute_type, download_root=model_dir, language='en')
-
 audio = whisperx.load_audio(audio_file)
 result = model.transcribe(audio, batch_size=batch_size)
 print(result["segments"]) # before alignment
@@ -26,7 +28,7 @@ result = whisperx.align(result["segments"], model_a, metadata, audio, device, re
 
 print(result["segments"]) # after alignment
 
-# delete model if low on GPU resources
+# delete model if low on GPU resources, for now we should probably leave it in so we cna call it repeatedly
 # import gc; gc.collect(); torch.cuda.empty_cache(); del model_a
 
 # 3. Assign speaker labels

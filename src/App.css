@@ -1,0 +1,146 @@
+.App {
+  text-align: center;
+}
+
+.App-logo {
+  height: 40vmin;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .App-logo {
+    animation: App-logo-spin infinite 20s linear;
+  }
+}
+
+.App-header {
+  background-color: #282c34;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(10px + 2vmin);
+  color: white;
+}
+
+.App-link {
+  color: #61dafb;
+}
+
+@keyframes App-logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.grid-item {
+  border: 2px solid #007bff; /* Blue border for grid items */
+  border-radius: 4px; /* Rounded corners for grid items */
+  padding: 10px; /* Padding inside grid items */
+  background-color: #282c34; /* Light background color for grid items */
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+}
+
+.grid-item h1,
+.grid-item h2 {
+  color: #007bff; /* Blue text color for headings */
+}
+
+.grid-item .btn-primary {
+  align-self: start; /* Align button to the start of the flex container */
+  margin-top: auto; /* Push the button to the bottom of the container */
+}
+
+.grid-item .form-control {
+  margin-bottom: 10px; /* Margin below the file input */
+}
+
+.grid-item .clickable {
+  pointer-events: auto;
+}
+
+.dev-console {
+  background-color: #1f1f1f;
+  color: #fff;
+  padding: 10px;
+  height: 200px;
+  overflow-y: auto;
+  font-family: monospace;
+}
+
+.log-entry {
+  margin-bottom: 5px;
+}
+
+.log-entry.error {
+  color: #ff6347; /* Tomato color for errors */}
+
+/* Settings panel */
+
+.settings-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  border: 2px solid #007bff;
+  border-radius: 4px;
+  background-color: #282c34;
+}
+
+/* Chunk interval field */
+
+.chunk-interval-field {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* Dark mode toggle */
+
+.dark-mode-toggle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* Dark mode styles */
+
+:root {
+  --background-color: #212529;
+  --text-color: #ffffff;
+}
+
+.dark-mode {
+  --background-color: #212529;
+  --text-color: #ffffff;
+}
+
+body {
+  color: #ffffff;
+}
+
+
+.recording-animation {
+  animation: recording-animation infinite 1s;
+}
+
+@keyframes recording-animation {
+  0% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.2);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
