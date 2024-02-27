@@ -12,6 +12,7 @@ from flask_cors import CORS
 from flask import Flask, render_template
 from flask_socketio import SocketIO
 from queue import Queue
+from transcription import transcribe_audio_files, concatenate_audio_files, format_transcript
 import subprocess
 
 app = Flask(__name__)
@@ -79,42 +80,24 @@ def periodic_transcription():
         return
 
     try:
-        # Concatenate the audio segments
-        combined_audio = concatenate_audio_segments()
+        # Write the audio segments to temporary files and collect the file paths
+        audio_file_paths = []
+        for audio_data in audio_segments:
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.webm') as tmp_file:
+                tmp_file.write(audio_data)
+                tmp_file.flush()
+                audio_file_paths.append(tmp_file.name)
 
-        # Generate a unique filename for the temporary file
-        tmp_file_name = f"/tmp/{uuid.uuid4()}.webm"
+        # Concatenate and transcribe the audio files
+        transcribe_audio_files(audio_file_paths, transcription_model, align_model, align_metadata, diarize_model, device)
 
-        # Save the combined audio to a temporary file
-        with tempfile.NamedTemporaryFile(delete=True, suffix='.webm') as tmp_file:
-            tmp_file.write(combined_audio)
+        # Clean up the temporary audio files
+        for file_path in audio_file_paths:
+            os.remove(file_path)
 
-            # Save the combined audio to a file
-            with open('output.webm', 'wb') as f:
-                f.write(combined_audio)
-            # Flush the data to disk
-            tmp_file.flush()
-
-            # Get the path to the temporary file
-            tmp_file_path = tmp_file.name
-
-            # Transcribe the combined audio file
-            batch_size = 8
-            audio = whisperx.load_audio(tmp_file_path)
-            result = transcription_model.transcribe(audio, batch_size=batch_size)
-            result = whisperx.align(result["segments"], align_model, align_metadata, audio, device, return_char_alignments=False)
-            diarize_segments = diarize_model(audio)
-            result = whisperx.assign_word_speakers(diarize_segments, result)
-            larger_transcript = format_transcript(result["segments"])
-
-            print("****-> periodic transcription: -> ")
-            print(larger_transcript)
-
-            # Emit the larger transcription to the client
-            socketio.emit('summary', {'summary_text': larger_transcript})
-
-        # Clear the buffer, but not the audio segments
+        # Clear the buffer and audio segments
         transcription_buffer = ""
+        audio_segments.clear()
 
     except TypeError as e:
         print("Error: ", e)
@@ -122,55 +105,6 @@ def periodic_transcription():
     # Schedule the next execution
     threading.Timer(10, periodic_transcription).start()
 
-
-def concatenate_audio_segments():
-    """Concatenate the audio segments in the audio_segments array into a single audio file.
-
-    This function uses the pydub library to concatenate the audio segments.
-    It handles the conversion of the AudioSegment objects to bytes-like objects
-    and ensures that the resulting audio file is in the correct format.
-
-    Returns:
-        A single AudioSegment object representing the concatenated audio.
-    """
-
-    # Combine the audio segments into a single AudioSegment object
-    combined_audio = pydub.AudioSegment.empty()
-    for segment in audio_segments:
-        # Convert the AudioSegment object to a bytes-like object
-        audio_segment = pydub.AudioSegment.from_file_using_temporary_files(
-            io.BytesIO(segment)
-        )
-        # Append the audio segment to the combined audio
-        combined_audio += audio_segment
-
-    # Convert the combined audio to the desired format (e.g., 16-bit PCM)
-    combined_audio = combined_audio.set_sample_width(2)
-    combined_audio = combined_audio.set_frame_rate(16000)
-
-    # Generate a unique filename for the temporary file
-    with tempfile.NamedTemporaryFile(delete=True, suffix='.webm') as tmp_file:
-        # Save the combined audio to the temporary file
-        combined_audio.export(tmp_file.name, format="webm")
-
-        # Return the temporary file as a bytes-like object
-        return tmp_file.read()
-
-
-def format_transcript(segments):
-    transcript = ""
-    current_speaker = None
-
-    for segment in segments:
-        speaker_id = segment.get("speaker", "Unknown")  # Default to "Unknown" if "speaker" key is missing
-        if speaker_id != current_speaker:
-            if current_speaker is not None:
-                transcript += "\n"
-            current_speaker = speaker_id
-            transcript += f"Speaker {current_speaker}: "
-        transcript += segment.get("text", "") + " "
-
-    return transcript
 
 def query_ollama(transcript, query):
     prompt = f"{transcript}\n{query}"
@@ -197,10 +131,24 @@ def handle_transcribe(data):
     if not data['audio']:
         print("Empty audio data. Skipping.")
         return
+
+    # Find the next available filename
+    # base_filename = 'testaudio_'
+    # extension = '.webm'
+    # counter = 1
+    # while os.path.exists(f"{base_filename}{str(counter).zfill(2)}{extension}"):
+    #    counter += 1
+    # next_available_filename = f"{base_filename}{str(counter).zfill(2)}{extension}"
+
+    # Save the audio data to the next available filename
+    # with open(next_available_filename, 'wb') as audio_file:
+    #    audio_file.write(data['audio'])
+
     # queue it up!
     audio_queue.put(data['audio'])
     audio_segments.append(data['audio'])
 
+    print(f"Audio saved as {next_available_filename}")
     print("*** end handle_transcribe ******")
 
 @socketio.on('summarize')
@@ -220,58 +168,6 @@ def handle_summarize(data):
     # Emit summarization results back to the client
     socketio.emit('summary', {'summary': summary})
 
-
-def periodic_transcription():
-    """Periodic transcription task that uses the concatenated audio segments."""
-    global transcription_buffer
-
-    print("*** periodic_transcription:")
-
-    if not audio_segments:
-        print("No audio segments to transcribe. Skipping this iteration.")
-        threading.Timer(10, periodic_transcription).start()
-        return
-
-    try:
-        # Concatenate the audio segments
-        combined_audio = concatenate_audio_segments()
-
-        # Generate a unique filename for the temporary file
-        tmp_file_name = f"/tmp/{uuid.uuid4()}.webm"
-
-        # Save the combined audio to a temporary file
-        with tempfile.NamedTemporaryFile(delete=True, suffix='.webm') as tmp_file:
-            tmp_file.write(combined_audio)
-
-            # Flush the data to disk
-            tmp_file.flush()
-
-            # Get the path to the temporary file
-            tmp_file_path = tmp_file.name
-
-            # Transcribe the combined audio file
-            batch_size = 8
-            audio = whisperx.load_audio(tmp_file_path)
-            result = transcription_model.transcribe(audio, batch_size=batch_size)
-            result = whisperx.align(result["segments"], align_model, align_metadata, audio, device, return_char_alignments=False)
-            diarize_segments = diarize_model(audio)
-            result = whisperx.assign_word_speakers(diarize_segments, result)
-            larger_transcript = format_transcript(result["segments"])
-
-            print("****-> periodic transcription: -> ")
-            print(larger_transcript)
-
-            # Emit the larger transcription to the client
-            socketio.emit('summary', {'summary_text': larger_transcript})
-
-        # Clear the buffer, but not the audio segments
-        transcription_buffer = ""
-
-    except TypeError as e:
-        print("Error: ", e)
-
-    # Schedule the next execution
-    threading.Timer(10, periodic_transcription).start()
 
 if __name__ == '__main__':
     device = "cuda"

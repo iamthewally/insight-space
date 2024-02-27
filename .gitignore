@@ -34,7 +34,7 @@ venv/bin/
 venv/
 .vscode/settings.json
 models/
-*.webm
+Recording.webm
 cert.pem
 key.pem
 testollama.py
