@@ -4,7 +4,7 @@ import torch
 
 device = "cuda" 
 audio_file = "Recording.webm"
-batch_size = 12 # reduce if low on GPU mem
+batch_size = 4 # reduce if low on GPU mem
 compute_type = "float16" # change to "int8" if low on GPU mem (may reduce accuracy)
 
 print("garbage collection...")
@@ -65,16 +65,21 @@ def format_transcript(diarized_segments, word_segments):
 
     return transcript.strip()
 
+
+
 def format_transcript(segments):
     transcript = ""
     current_speaker = None
+
     for segment in segments:
-        if segment["speaker"] != current_speaker:
+        speaker_id = segment.get("speaker", "Unknown")  # Default to "Unknown" if "speaker" key is missing
+        if speaker_id != current_speaker:
             if current_speaker is not None:
                 transcript += "\n"
-            current_speaker = segment["speaker"]
+            current_speaker = speaker_id
             transcript += f"Speaker {current_speaker}: "
-        transcript += segment["text"] + " "
+        transcript += segment.get("text", "") + " "
+
     return transcript
 
 # Usage

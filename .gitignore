@@ -39,3 +39,6 @@ cert.pem
 key.pem
 testollama.py
 transcribe.py
+__pycache__/*
+__pycache__/app.cpython-311.pyc
+__pycache__/transcription.cpython-310.pyc

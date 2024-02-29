@@ -148,7 +148,7 @@ def handle_transcribe(data):
     audio_queue.put(data['audio'])
     audio_segments.append(data['audio'])
 
-    print(f"Audio saved as {next_available_filename}")
+    # print(f"Audio saved as {next_available_filename}")
     print("*** end handle_transcribe ******")
 
 @socketio.on('summarize')
