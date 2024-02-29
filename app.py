@@ -150,6 +150,29 @@ def handle_transcribe(data):
 
     # print(f"Audio saved as {next_available_filename}")
     print("*** end handle_transcribe ******")
+from flask import request, jsonify
+
+@app.route('/whisper-transcribe', methods=['POST'])
+def whisper_transcribe():
+    # Check if the request contains audio data
+    if 'audio' not in request.files:
+        return jsonify({'error': 'No audio file provided'}), 400
+
+    # Get the audio file from the request
+    audio_file = request.files['audio']
+
+    # Save the audio file to a temporary location
+    temp_audio_path = os.path.join(tempfile.gettempdir(), 'temp_audio.webm')
+    audio_file.save(temp_audio_path)
+
+    # Transcribe the audio file using your transcription logic
+    transcript = transcribe_audio_file(temp_audio_path, transcription_model, align_model, align_metadata, diarize_model, device)
+
+    # Clean up the temporary audio file
+    os.remove(temp_audio_path)
+
+    # Return the transcript as a JSON response
+    return jsonify({'transcript': transcript})
 
 @socketio.on('summarize')
 def handle_summarize(data):
