@@ -122,6 +122,18 @@
   --text-color: #ffffff;
 }
 
+.grid-item {
+  border: 2px solid #007bff; /* Blue border for grid items */
+  border-radius: 4px; /* Rounded corners for grid items */
+  padding: 10px; /* Padding inside grid items */
+  background-color: #282c34; /* Light background color for grid items */
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto; /* Make the content scrollable */
+  max-height: 400px; /* Set a fixed height for the grid items */
+}
+
 body {
   color: #ffffff;
 }

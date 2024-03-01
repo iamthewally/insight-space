@@ -11,10 +11,10 @@ const socket = io('https://192.168.1.25:2601');
 function App() {
   const [file, setFile] = useState(null);
   const [transcript, setTranscript] = useState('');
-  const [summary, setSummary] = useState('');
+  const [summary] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [stopRecordingFunction, setStopRecordingFunction] = useState(null);
-  const [recordingEnabled, setRecordingEnabled] = useState(false);
+  //const [recordingEnabled, setRecordingEnabled] = useState(false);
   const [chunkInterval, setChunkInterval] = useState(5); // Default chunk interval in seconds
   const [darkModeEnabled, setDarkModeEnabled] = useState(false);
   const [time, setTime] = useState(0);
@@ -31,11 +31,13 @@ function App() {
 
   useEffect(() => {
     socket.on('transcription', (data) => {
-      setTranscript(prevTranscript => prevTranscript + "\n" + data.transcript);
+      setTranscript(prevTranscript => {
+        return prevTranscript + (prevTranscript ? "\n\n" : "") + "----------------------------------\n" + data.transcript;
+      });
     });
 
     socket.on('summary', (data) => {
-      setSummary(data.summary_text);
+      setTranscript(data.summary_text); // Update the transcript with the summary
     });
 
     // Set up the stylesheet for dark mode
@@ -54,6 +56,10 @@ function App() {
       document.head.removeChild(stylesheet); // Remove the stylesheet when the component is unmounted
     };
   }, [darkModeEnabled]);
+
+
+
+
   const handleChunkIntervalChange = (event) => {
     const value = parseInt(event.target.value);
     if (value > 0) {
@@ -76,85 +82,74 @@ function App() {
       const reader = new FileReader();
       reader.onload = function (e) {
         const audioData = new Uint8Array(e.target.result);
-        socket.emit('transcribe', { audio: audioData.buffer });
+        console.log('Buffer to send:', audioData.buffer);
+        socket.emit('transcribe_stream', { audio: audioData.buffer });
       };
       reader.readAsArrayBuffer(file);
     }
   };
 
-  const startRecording = () => {
-    console.log("startRecording() -> Start");
-    setRecordingEnabled(true); // Enable recording when the start button is clicked
-
-    let stream;
-    let recorder;
-
-    const stopRecordingSession = () => {
-      if (recorder && recorder.state !== "inactive") {
-        recorder.stop(); // Stop the current recording session
-      }
-      if (stream) {
-        // Stop each track on the stream to ensure it's fully stopped
-        stream.getTracks().forEach(track => track.stop());
-      }
-    };
-
-    const initializeRecording = () => {
-      if (!recordingEnabled) {
-        return; // Exit if recording is not enabled
-      }
-      stopRecordingSession(); // Stop any previous recording session
-
-      navigator.mediaDevices.getUserMedia({ audio: true })
-        .then(newStream => {
-          stream = newStream;
-          recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
-          recorder.start(); // Start recording without slicing
-
-          // Start slicing the recording into chunks
-          const interval = chunkInterval * 1000; // Convert to milliseconds
-          setInterval(() => {
-            if (recorder.state !== "inactive") {
-              recorder.stop(); // Stop the current chunk
-            }
-          }, interval);
-
-          setIsRecording(true);
-
-          recorder.ondataavailable = event => {
-            if (event.data.size > 0) {
-              const reader = new FileReader();
-              reader.onload = function (e) {
-                const audioData = new Uint8Array(e.target.result);
-                socket.emit('transcribe', { audio: audioData.buffer });
-              };
-              reader.readAsArrayBuffer(event.data);
-            }
-          };
-
-          recorder.onstop = () => {
-            console.log("Chunk recording stopped, ready to reinitialize");
-            initializeRecording(); // Restart the recording process for the next segment
-          };
-        })
-        .catch(error => {
-          console.error('Error accessing audio stream:', error);
-        });
-    };
-
-    const stopRecording = () => {
-      setRecordingEnabled(false); // Disable recording when the stop button is clicked
-      stopRecordingSession();
-      console.log("startRecording() -> Stop");
-      setIsRecording(false);
-    };
-
-    setStopRecordingFunction(() => stopRecording);
-    initializeRecording(); // Start the initial recording process
+  const handleMouseDown = (event) => {
+    event.stopPropagation();
   };
 
+  const startRecording = () => {
+    console.log("startRecording() -> Start");
 
+    if (isRecording) {
+      console.log("Recording is already in progress.");
+      return;
+    }
 
+    navigator.mediaDevices.getUserMedia({ audio: true })
+      .then(newStream => {
+        setIsRecording(true); // Set recording state to true immediately after getting user media
+        let stream = newStream;
+        let recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+
+        const stopRecordingSession = () => {
+          if (recorder && recorder.state !== "inactive") {
+            recorder.stop(); // Stop the current recording session
+          }
+          if (stream) {
+            // Stop each track on the stream to ensure it's fully stopped
+            stream.getTracks().forEach(track => track.stop());
+          }
+          setIsRecording(false); // Set recording state to false when stopping
+        };
+
+        setStopRecordingFunction(() => stopRecordingSession);
+
+        recorder.start(); // Start recording without slicing
+
+        // Start slicing the recording into chunks
+        const interval = chunkInterval * 1000; // Convert to milliseconds
+        setInterval(() => {
+          if (recorder.state !== "inactive") {
+            recorder.stop(); // Stop the current chunk
+          }
+        }, interval);
+
+        recorder.ondataavailable = event => {
+          if (event.data.size > 0) {
+            const reader = new FileReader();
+            reader.onload = function (e) {
+              const audioData = new Uint8Array(e.target.result);
+              socket.emit('transcribe_stream', { audio: audioData.buffer });
+            };
+            reader.readAsArrayBuffer(event.data);
+          }
+        };
+
+        recorder.onstop = () => {
+          console.log("Chunk recording stopped, ready to reinitialize");
+          recorder.start(); // Restart the recording process for the next segment
+        };
+      })
+      .catch(error => {
+        console.error('Error accessing audio stream:', error);
+      });
+  };
 
 
   // TODO: give the grid boxes a windows style bar?
@@ -163,32 +158,31 @@ function App() {
       <GridLayout className="layout" cols={12} rowHeight={30} width={1200}>
         <div key="fileUploadForm" data-grid={{ x: 0, y: 0, w: 6, h: 4 }} className="grid-item">
           <h3>Audio Transcription (File Upload)</h3>
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} onMouseDown={handleMouseDown}>
             <input type="file" onChange={handleFileChange} accept="audio/*" className="form-control" />
-            <button type="submit" className="btn btn-primary mt-2">Transcribe</button>
+            <button type="submit" className="btn btn-primary mt-2" onMouseDown={handleMouseDown}>Transcribe</button>
           </form>
         </div>
-        <div key="microphone-panel" data-grid={{ x: 6, y: 0, w: 6, h: 3 }} className="grid-item">
+
+
+
+        <div key="microphone-panel" data-grid={{ x: 6, y: 0, w: 6, h: 4 }} className="grid-item">
           <h3>Audio Transcription (Mic Recording)</h3>
           <div onMouseDown={e => e.stopPropagation()}>
-            <button onClick={startRecording} className="btn btn-primary mt-2" disabled={isRecording}>
+            <button onClick={startRecording} className="btn btn-primary mt-2" disabled={isRecording} onMouseDown={e => e.stopPropagation()}>
               {isRecording ? 'Recording...' : 'Start Recording'}
             </button>
-            <button onClick={() => stopRecordingFunction && stopRecordingFunction()} className="btn btn-danger mt-2" disabled={!isRecording}>
+            <button onClick={() => stopRecordingFunction && stopRecordingFunction()} className="btn btn-danger mt-2" disabled={!isRecording} onMouseDown={e => e.stopPropagation()}>
               Stop Recording
-            </button>          
-
-          {isRecording && (
-            <div className="recording-animation"></div>
-          )}
-
+            </button>
+            {isRecording && (
+              <div className="recording-animation"></div>
+            )}
             <div className="timer">
-            {time} seconds
-          </div>
+              {time} seconds
+            </div>
           </div>
         </div>
-
-
         <div key="transcriptDisplay" data-grid={{ x: 0, y: 4, w: 6, h: 10 }} className="grid-item">
           {transcript && (
             <div>
@@ -199,7 +193,7 @@ function App() {
             </div>
           )}
         </div>
-        <div key="summaryDisplay" data-grid={{ x: 6, y: 4, w: 6, h: 8 }} className="grid-item">
+        <div key="summaryDisplay" data-grid={{ x: 6, y: 4, w: 6, h: 6 }} className="grid-item">
           {summary && (
             <div>
               <h2>Refined Transcript:</h2>

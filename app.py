@@ -1,7 +1,9 @@
+##filename:app.py
 import whisperx
 import gc
 import ollama
 import torch
+import datetime
 import io
 import tempfile
 import os
@@ -12,8 +14,10 @@ from flask_cors import CORS
 from flask import Flask, render_template
 from flask_socketio import SocketIO
 from queue import Queue
-from transcription import transcribe_audio_files, concatenate_audio_files, format_transcript
+from transcription import *
 import subprocess
+from flask import request, jsonify
+
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})  # Allow all origins for all routes
@@ -41,29 +45,14 @@ def transcription_worker():
 
     while True:
         # Wait for audio data to be available in the queue
+        # print("*** transcription worker waiting ")
         audio_data = audio_queue.get()
 
-        # Process the audio data
-        # Save the audio data to a temporary file
-        with tempfile.NamedTemporaryFile(delete=True, suffix='.webm') as tmp_file:
-            tmp_file.write(audio_data)
-            tmp_file.flush()  # Ensure data is written to disk
-            tmp_file_path = tmp_file.name
+        transcript = transcribe_audio_file(audio_data, transcription_model, align_model, align_metadata, diarize_model, device)
 
-            # Transcribe the audio file
-            batch_size = 8
-            audio = whisperx.load_audio(tmp_file_path)
-            result = transcription_model.transcribe(audio, batch_size=batch_size)
-            result = whisperx.align(result["segments"], align_model, align_metadata, audio, device, return_char_alignments=False)
-            diarize_segments = diarize_model(audio)
-            result = whisperx.assign_word_speakers(diarize_segments, result)
-            formatted_transcript = format_transcript(result["segments"])
-
-            print("*** transcription:")
-            print(formatted_transcript)
-
-            # Emit transcription results back to the client
-            socketio.emit('transcription', {'transcript': formatted_transcript})
+        # Emit transcription results back to the client
+        # print("*** transcription worker emit ")
+        socketio.emit('transcription', {'transcript': transcript})
 
         # Indicate that the processing is complete
         audio_queue.task_done()
@@ -80,30 +69,31 @@ def periodic_transcription():
         return
 
     try:
-        # Write the audio segments to temporary files and collect the file paths
-        audio_file_paths = []
-        for audio_data in audio_segments:
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.webm') as tmp_file:
-                tmp_file.write(audio_data)
-                tmp_file.flush()
-                audio_file_paths.append(tmp_file.name)
+        # Concatenate the audio segments in memory
+        concatenated_audio = concatenate_audio_segments(audio_segments)
 
-        # Concatenate and transcribe the audio files
-        transcribe_audio_files(audio_file_paths, transcription_model, align_model, align_metadata, diarize_model, device)
-
-        # Clean up the temporary audio files
-        for file_path in audio_file_paths:
-            os.remove(file_path)
+        # Save the concatenated audio to a file
+        # timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        # output_file_path = f"concatenated_audio_{timestamp}.webm"
+        # with open(output_file_path, "wb") as output_file:
+            # output_file.write(concatenated_audio)
+        # print(f"Saved concatenated audio to {output_file_path}")
+        
+        # Transcribe the concatenated audio
+        transcript = transcribe_audio_file(concatenated_audio, transcription_model, align_model, align_metadata, diarize_model, device)
 
         # Clear the buffer and audio segments
+        socketio.emit('summary', {'summary_text': transcript})
         transcription_buffer = ""
-        audio_segments.clear()
+
+        print("*** periodic_transcription:")
 
     except TypeError as e:
         print("Error: ", e)
 
     # Schedule the next execution
-    threading.Timer(10, periodic_transcription).start()
+    threading.Timer(60, periodic_transcription).start()
+
 
 
 def query_ollama(transcript, query):
@@ -123,36 +113,17 @@ def handle_connect():
 def handle_disconnect():
     print('Client disconnected')
 
-@socketio.on('transcribe')
+@socketio.on('transcribe_stream')
 def handle_transcribe(data):
-    print("*** begin handle_transcribe ******")
-
     # Check if the audio data is empty
     if not data['audio']:
         print("Empty audio data. Skipping.")
         return
-
-    # Find the next available filename
-    # base_filename = 'testaudio_'
-    # extension = '.webm'
-    # counter = 1
-    # while os.path.exists(f"{base_filename}{str(counter).zfill(2)}{extension}"):
-    #    counter += 1
-    # next_available_filename = f"{base_filename}{str(counter).zfill(2)}{extension}"
-
-    # Save the audio data to the next available filename
-    # with open(next_available_filename, 'wb') as audio_file:
-    #    audio_file.write(data['audio'])
-
     # queue it up!
     audio_queue.put(data['audio'])
     audio_segments.append(data['audio'])
 
-    # print(f"Audio saved as {next_available_filename}")
-    print("*** end handle_transcribe ******")
-from flask import request, jsonify
-
-@app.route('/whisper-transcribe', methods=['POST'])
+@app.route('/transcribe', methods=['POST'])
 def whisper_transcribe():
     # Check if the request contains audio data
     if 'audio' not in request.files:
@@ -161,18 +132,15 @@ def whisper_transcribe():
     # Get the audio file from the request
     audio_file = request.files['audio']
 
-    # Save the audio file to a temporary location
-    temp_audio_path = os.path.join(tempfile.gettempdir(), 'temp_audio.webm')
-    audio_file.save(temp_audio_path)
+    # Read the audio file content into a bytes-like object
+    audio_data = audio_file.read()
 
-    # Transcribe the audio file using your transcription logic
-    transcript = transcribe_audio_file(temp_audio_path, transcription_model, align_model, align_metadata, diarize_model, device)
-
-    # Clean up the temporary audio file
-    os.remove(temp_audio_path)
+    # Transcribe the audio data using your transcription logic
+    transcript = transcribe_audio_file(audio_data, transcription_model, align_model, align_metadata, diarize_model, device)
 
     # Return the transcript as a JSON response
     return jsonify({'transcript': transcript})
+
 
 @socketio.on('summarize')
 def handle_summarize(data):
@@ -192,6 +160,8 @@ def handle_summarize(data):
     socketio.emit('summary', {'summary': summary})
 
 
+
+    # TODO: add the output of nvidia-smi to the startup so we know where we are with VRAM
 if __name__ == '__main__':
     device = "cuda"
     compute_type = "float16"
@@ -211,7 +181,7 @@ if __name__ == '__main__':
     print("******** All models loaded ********")
 
     # Start the periodic transcription task (new version)
-    threading.Timer(10, periodic_transcription).start()
+    threading.Timer(60, periodic_transcription).start()
 
     # Start the transcription worker thread
     threading.Thread(target=transcription_worker, daemon=True).start()

@@ -56,6 +56,7 @@ def format_transcript(diarized_segments, word_segments):
     """
     transcript = ""
     current_speaker = None
+    
     for word_segment in word_segments:
         speaker_id = word_segment.get("speaker")
         if speaker_id != current_speaker:
