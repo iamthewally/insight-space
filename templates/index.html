@@ -5,8 +5,8 @@
 </head>
 <body>
     <h1>Upload an audio file for transcription</h1>
-    <form action="/" method="post" enctype="multipart/form-data">
-        <input type="file" name="file" accept="audio/*">
+    <form action="/asr" method="POST" enctype="multipart/form-data">
+        <input type="file" name="audio_file" accept="audio/*">
         <input type="submit" value="Transcribe">
     </form>
 </body>

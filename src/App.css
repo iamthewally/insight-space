@@ -1,88 +1,40 @@
+/* App.css */
+
 .App {
   text-align: center;
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
-}
-
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
-}
-
-.App-link {
-  color: #61dafb;
-}
-
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 .grid-item {
-  border: 2px solid #007bff; /* Blue border for grid items */
-  border-radius: 4px; /* Rounded corners for grid items */
-  padding: 10px; /* Padding inside grid items */
-  background-color: #282c34; /* Light background color for grid items */
+  border: 2px solid #007bff;
+  border-radius: 4px;
+  padding: 10px;
+  background-color: #282c34;
   color: #ffffff;
   display: flex;
   flex-direction: column;
+  overflow-y: auto;
+  max-height: 400px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  position: relative;
 }
 
 .grid-item h1,
 .grid-item h2 {
-  color: #007bff; /* Blue text color for headings */
+  color: #007bff;
 }
 
 .grid-item .btn-primary {
-  align-self: start; /* Align button to the start of the flex container */
-  margin-top: auto; /* Push the button to the bottom of the container */
+  align-self: start;
+  margin-top: auto;
 }
 
 .grid-item .form-control {
-  margin-bottom: 10px; /* Margin below the file input */
+  margin-bottom: 10px;
 }
 
 .grid-item .clickable {
   pointer-events: auto;
 }
-
-.dev-console {
-  background-color: #1f1f1f;
-  color: #fff;
-  padding: 10px;
-  height: 200px;
-  overflow-y: auto;
-  font-family: monospace;
-}
-
-.log-entry {
-  margin-bottom: 5px;
-}
-
-.log-entry.error {
-  color: #ff6347; /* Tomato color for errors */}
-
-/* Settings panel */
 
 .settings-panel {
   display: flex;
@@ -94,23 +46,12 @@
   background-color: #282c34;
 }
 
-/* Chunk interval field */
-
-.chunk-interval-field {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-/* Dark mode toggle */
-
+.chunk-interval-field,
 .dark-mode-toggle {
   display: flex;
   align-items: center;
   gap: 5px;
 }
-
-/* Dark mode styles */
 
 :root {
   --background-color: #212529;
@@ -122,22 +63,9 @@
   --text-color: #ffffff;
 }
 
-.grid-item {
-  border: 2px solid #007bff; /* Blue border for grid items */
-  border-radius: 4px; /* Rounded corners for grid items */
-  padding: 10px; /* Padding inside grid items */
-  background-color: #282c34; /* Light background color for grid items */
-  color: #ffffff;
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto; /* Make the content scrollable */
-  max-height: 400px; /* Set a fixed height for the grid items */
-}
-
 body {
   color: #ffffff;
 }
-
 
 .recording-animation {
   animation: recording-animation infinite 1s;
@@ -147,12 +75,44 @@ body {
   0% {
     transform: scale(1);
   }
-
   50% {
     transform: scale(1.2);
   }
-
   100% {
     transform: scale(1);
   }
+}
+
+/* New styles for the windows-style topbar */
+.grid-item .topbar {
+  background-color: #007bff;
+  color: #ffffff;
+  padding: 5px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+}
+
+.grid-item .topbar .title {
+  font-weight: bold;
+}
+
+.grid-item .topbar .minimize-btn,
+.grid-item .topbar .restore-btn {
+  background: none;
+  border: none;
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 16px;
+  margin-left: 5px;
+}
+
+.grid-item .content {
+  flex-grow: 1;
+  overflow-y: auto;
+}
+
+.grid-item.minimized .content {
+  display: none;
 }
