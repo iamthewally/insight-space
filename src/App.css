@@ -116,3 +116,8 @@ body {
 .grid-item.minimized .content {
   display: none;
 }
+
+.draggable-window {
+  position: absolute;
+  z-index: 999;
+}

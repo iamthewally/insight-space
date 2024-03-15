@@ -18,6 +18,7 @@ from transcription import *
 import subprocess
 from flask import request, jsonify
 
+
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})  # Allow all origins for all routes
 socketio = SocketIO(app, cors_allowed_origins="*",)  # Allow all origins for Socket.IO
@@ -56,7 +57,7 @@ def transcription_worker():
         # Emit transcription results back to the client
         # print("*** transcription worker emit ")
         socketio.emit('transcription', {'transcript': transcript})
-
+        print()
         # Indicate that the processing is complete
         audio_queue.task_done()
 
@@ -116,6 +117,7 @@ def handle_transcribe(data):
     # queue it up!
     audio_queue.put(data['audio'])
     audio_segments.append(data['audio'])
+    # Add the new segment to the transcript object
 
 @app.route('/asr', methods=['POST'])
 def whisper_transcribe():

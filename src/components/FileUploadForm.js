@@ -16,7 +16,7 @@ const FileUploadForm = ({ socket }) => {
       reader.onload = function (e) {
         const audioData = new Uint8Array(e.target.result);
         console.log('Buffer to send:', audioData.buffer);
-        socket.emit('transcribe_stream', { audio: audioData.buffer });
+        //emitTranscription(audioData.buffer); // Emit the audio data to the server
       };
       reader.readAsArrayBuffer(file);
     }
