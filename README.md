@@ -1,70 +1,49 @@
-# Getting Started with Create React App
+# Insight Space: A Real-Time Audio Transcription and Summarization Tool 🎙️
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Insight Space is a web application that provides real-time audio transcription and summarization capabilities. It allows users to upload audio files or record audio directly from their microphone, and receive both a detailed transcript and a concise summary of the content. This tool is particularly useful for capturing and analyzing conversations, meetings, lectures, and other audio-based information.
 
-## Available Scripts
+## Features 🚀
 
-In the project directory, you can run:
+- **Real-time transcription**: Transcribe audio in real-time, allowing you to follow along with the conversation or presentation as it happens.
+- **Speaker diarization**: Identify and label different speakers in the audio, making it easier to track who said what.
+- **Concise summarization**: Generate a brief summary of the transcribed text, highlighting the key points and takeaways.
+- **File upload and microphone recording**: Choose between uploading existing audio files or recording directly from your microphone.
+- **Customizable chunk interval**: Adjust the interval at which audio chunks are sent for transcription, allowing you to balance latency and accuracy.
+- **Dark mode**: Switch to dark mode for a more comfortable viewing experience in low-light environments. 🌙
 
-### `npm start`
+## Technologies Used 🛠️
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+Insight Space is built using a combination of technologies, including:
+- **Frontend**: React, Bootstrap, React Grid Layout
+- **Backend**: Flask, Flask-SocketIO, WhisperX, Ollama
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## Installation 💻
 
-### `npm test`
+1. Clone the repository:
+   '''
+   git clone https://github.com/iamthewally/insight-space.git
+   cd insight-space
+   '''
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+3. Generate a local key/cert to connect over SSL (Chrome requires a secured connection to enable the microphone):
+   openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout server.key -out server.crt
 
-### `npm run build`
+4. Set up the Node.js frontend:
+   npm install
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+5. Install the backend requirements:
+   pip install -r requirements.txt
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+## Usage 🖥️
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+1. Run the backend server:
+   cd insight-space && python app.py
 
-### `npm run eject`
+2. In a separate terminal, run the frontend server:
+   cd insight-space && npm start
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+3. Access the application in your browser at https://localhost:2600.
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+## License 📄
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
-
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+This project is currently not licensed. Please contact the author for more information regarding licensing and usage rights.
